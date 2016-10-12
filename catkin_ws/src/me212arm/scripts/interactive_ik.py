@@ -46,7 +46,7 @@ def solveIk(target_pose):
         robotjoints = rospy.wait_for_message('/joint_states', sensor_msgs.msg.JointState)
         q0 = robotjoints.position[0:2]
     
-    q_sol = planner.ik(target_pose, q0)
+    q_sol = planner.ik([target_pose[0], target_pose[2]], q0)
     if q_sol is None:
         print 'no ik solution'
         return

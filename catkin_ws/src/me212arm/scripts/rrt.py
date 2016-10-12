@@ -12,16 +12,18 @@ import rospy
 from me212helper.marker_helper import createLineStripMarker, createPointMarker
 from visualization_msgs.msg import Marker
 import collision
+import tkMessageBox
 
 #constants
 XDIM = a1+a2 + 0.1
 ZDIM = a1+a2 + 0.1
 EPSILON = 0.01        # (rad)
-TARGET_RADIUS = 0.005 # (meter)
+TARGET_RADIUS = 0.02  # (meter)
 NUMNODES = 5000
 
 obstacle_segs = [ [[0.2,0.2], [0.4,0.2]] ]  # line segs ((x1,z1)--(x2,z2))
 target_x = [0.15, 0.15]
+q0 = [np.pi/2 -0.01, 0.0]
 #obstacle_segs = []
 
 def dist(p1,p2):
@@ -72,7 +74,8 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
         vis_pub.publish(createPointMarker([[target_x[0], 0, target_x[1]]], 2, namespace="", rgba=(0,0,1,1), frame_id = '/arm_base'))
     
     for i in xrange(NIter):
-        print 'i', i
+        if i % 100 == 0:
+            print 'iteration:', i
         # pick a node in work space randomly
         q_rand = [ np.random.uniform(joint_limits[0][0], joint_limits[0][1]), 
                    np.random.uniform(joint_limits[1][0], joint_limits[1][1]) ]
@@ -105,31 +108,45 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
 def main():
     rospy.init_node("test_rrt")
     exec_joint_pub = rospy.Publisher('/virtual_joint_states', sensor_msgs.msg.JointState, queue_size=10)
+    exec_joint1_pub = rospy.Publisher('/joint1_controller/command', std_msgs.msg.Float64, queue_size=1)
+    exec_joint2_pub = rospy.Publisher('/joint2_controller/command', std_msgs.msg.Float64, queue_size=1)
     vis_pub = rospy.Publisher('visualization_marker', Marker, queue_size=10) 
     
     use_real_arm = rospy.get_param('/real_arm', False)
     
-    rospy.sleep(0.5)
+    rospy.sleep(0.1)
     
     vis_pub.publish(Marker(action=3)) # delete all
+    rospy.sleep(0.1)
     vis_pub.publish(createLineStripMarker([[obstacle_segs[0][0][0], 0, obstacle_segs[0][0][1]] , [obstacle_segs[0][1][0], 0, obstacle_segs[0][1][1]]], 
                     marker_id = 5, rgba = (1,0,0,1), pose=[0,0,0,0,0,0,1], frame_id = '/arm_base'))
     
+    exec_joint1_pub.publish(std_msgs.msg.Float64(q0[0]))
+    exec_joint2_pub.publish(std_msgs.msg.Float64(q0[1]))
+    
     rospy.sleep(0.5)
-    plan = rrt(target_x = target_x, q0 = (np.pi/2 - 0.01, 0.0), pub = exec_joint_pub, vis_pub= vis_pub)
     
-    for p in plan:
-        if not use_real_arm:
-            js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (p[0] - np.pi/2, p[1]))
-            exec_joint_pub.publish(js)
-        else:
-            exec_joint1_pub.publish(std_msgs.msg.Float64(p[0] - np.pi/2))
-            exec_joint2_pub.publish(std_msgs.msg.Float64(p[1]))
-        
-        rospy.sleep(0.01)
-        
-    print plan
+    print 'target_x', target_x
+    print 'q0', q0
     
+    plan = rrt(target_x = target_x, q0 = q0, pub = exec_joint_pub, vis_pub= vis_pub)
+    if plan is None:
+        print 'no plan found in %d iterations': NIter
+        return
+    
+    print 'found 1 plan', plan
+    result = tkMessageBox.askquestion("RRT Plan", "A plan is found, execute?", icon='warning')
+    
+    if result == 'yes':
+        for p in plan:
+            if not use_real_arm:
+                js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (p[0], p[1]))
+                exec_joint_pub.publish(js)
+            else:
+                exec_joint1_pub.publish(std_msgs.msg.Float64(p[0]))
+                exec_joint2_pub.publish(std_msgs.msg.Float64(p[1]))
+            
+            rospy.sleep(0.01)
 
 # if python says run, then we should run
 if __name__ == '__main__':

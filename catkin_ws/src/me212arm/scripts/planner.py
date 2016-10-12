@@ -1,8 +1,8 @@
 import numpy as np
 
-joint_limits = (
-    (-np.pi, np.pi),  # make joint 1 smaller from real
-    (-np.pi, np.pi))
+joint_limits = [
+    [-np.pi, np.pi],  # make joint 1 smaller from real
+    [-np.pi, np.pi]]      # should be read from URDF
 
 # length of two links
 a1 = 0.1778
@@ -19,14 +19,14 @@ def select_best_q(candidates, q0, weight = [1,1]):
     min_v = None
     best_q = None
     for q in candidates:
-        v = np.sum(((np.array(q) - np.array(q0))*np.array(weight))**2)
+        v = np.sum(((np.array(q) - np.array(q0)) * np.array(weight)) ** 2)
         if (min_v == None or min_v > v) and in_joint_range(q):
             min_v = v
             best_q = q
     return best_q
 
-def ik(target_TCP_poselist, q0):
-    x, z = target_TCP_poselist[0], target_TCP_poselist[2]
+def ik(target_TCP_xz, q0):
+    x, z = target_TCP_xz[0], target_TCP_xz[1]
     ik_candidate = []
     
     xz2 = x**2 + z**2  ## In Python, x**y: x to the power y
@@ -64,12 +64,15 @@ def Jacobian(q):
 
 # return end point of the second link
 def fk(q):
-    return (a1 * np.cos(q[0]) + a2 * np.cos(q[0]+q[1]) ,
-            a1 * np.sin(q[0]) + a2 * np.sin(q[0]+q[1]))
+    th1 = q[0] + np.pi / 2
+    th12 = th1 + q[1]
+    return [a1 * np.cos(th1) + a2 * np.cos(th12) ,
+            a1 * np.sin(th1) + a2 * np.sin(th12)]
 
 # return end point of the first link
 def fk1(q):
-    return (a1 * np.cos(q[0]),
-            a1 * np.sin(q[0]))
+    th1 = q[0] + np.pi / 2
+    return [a1 * np.cos(th1),
+            a1 * np.sin(th1)]
 
 

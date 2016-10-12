@@ -8,6 +8,6 @@ joint1_controller:
     motor:
         id: 4
         init: 2047
-        min: 0
-        max: 4095
+        min: 1024
+        max: 3070
 
