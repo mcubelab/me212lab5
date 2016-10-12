@@ -22,8 +22,8 @@ if __name__=="__main__":
     radius = 0.05          # (meter)
     center = [0.15, 0.15]  # (x,z) meter
     
-    for theta in np.linspace(0, 2*np.pi):
-        target_xz = ## [??, ??] use theta in your code
+    for theta in np.linspace(0, 4*np.pi):
+        target_xz =   ## [??, ??] use theta in your code
         q_sol =       ## planner.ik( ?? )
         if q_sol is None:
             print 'no ik solution'
@@ -35,5 +35,5 @@ if __name__=="__main__":
             else:
                 js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = q_sol)
                 exec_joint_pub.publish(js)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
 
