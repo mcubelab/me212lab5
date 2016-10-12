@@ -23,7 +23,7 @@ if __name__=="__main__":
     q0 = robotjoints.position
     
     for theta in np.linspace(0, 2*np.pi):
-        target_pose = ## [??, ??] use theta in your code
+        target_xz = ## [??, ??] use theta in your code
         q_sol =       ## planner.ik( ?? )
         if q_sol is None:
             print 'no ik solution'
