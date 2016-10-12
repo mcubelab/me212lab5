@@ -16,11 +16,11 @@ exec_joint_pub = rospy.Publisher('/virtual_joint_states', sensor_msgs.msg.JointS
 use_real_arm = rospy.get_param('/real_arm', False)
 
 if __name__=="__main__":
+    radius = 0.05          # (meter)
+    center = [0.2, 0.15]  # (x,z) meter
     
     robotjoints = rospy.wait_for_message('/joint_states', sensor_msgs.msg.JointState)
     q0 = robotjoints.position
-    radius = 0.05          # (meter)
-    center = [0.15, 0.15]  # (x,z) meter
     
     for theta in np.linspace(0, 4*np.pi):
         target_xz =   ## [??, ??] use theta in your code
@@ -35,5 +35,7 @@ if __name__=="__main__":
             else:
                 js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = q_sol)
                 exec_joint_pub.publish(js)
-        rospy.sleep(0.1)
+            q0 = q_sol
+
+        rospy.sleep(0.3)
 

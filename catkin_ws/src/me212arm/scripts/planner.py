@@ -1,7 +1,7 @@
 import numpy as np
 
 joint_limits = [
-    [-np.pi, np.pi],  # make joint 1 smaller from real
+    [-np.pi/2, np.pi/4],  # make joint 1 smaller from real
     [-np.pi, np.pi]]  
 
 # length of two links
