@@ -2,7 +2,7 @@ import numpy as np
 
 joint_limits = [
     [-np.pi, np.pi],  # make joint 1 smaller from real
-    [-np.pi, np.pi]]      # should be read from URDF
+    [-np.pi, np.pi]]  
 
 # length of two links
 a1 = 0.1778

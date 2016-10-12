@@ -24,8 +24,6 @@ exec_joint_pub = rospy.Publisher('/virtual_joint_states', sensor_msgs.msg.JointS
 exec_joint1_pub = rospy.Publisher('/joint1_controller/command', std_msgs.msg.Float64, queue_size=1)
 exec_joint2_pub = rospy.Publisher('/joint2_controller/command', std_msgs.msg.Float64, queue_size=1)
 
-
-
 mutex = Lock()
 def frameCallback( msg ):
     global br

@@ -20,5 +20,3 @@ if __name__=="__main__":
     obstacle_segs = [ [[0.2,0.2], [0.4,0.2]] ]  # line segs ((x1,z1)--(x2,z2))
     print in_collision( [0,0], obstacle_segs)
     print in_collision( [-np.pi /4*3, -np.pi /4*3], obstacle_segs)
-
-
