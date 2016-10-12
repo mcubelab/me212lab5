@@ -3,18 +3,19 @@
 # 2.12 Lab 5 RRT for obstacle-free trajectory planning (adapted from Steve LaValle's code)
 # Peter Yu Oct 2016
 
-import sys, random, math, pygame
+import rospy
+import random
 from math import sqrt,cos,sin,atan2
 from planner import fk, fk1, joint_limits, a1, a2
 import numpy as np
 import sensor_msgs.msg
-import rospy
+from std_msgs.msg import Float64
 from me212helper.marker_helper import createLineStripMarker, createPointMarker
 from visualization_msgs.msg import Marker
 import collision
 import tkMessageBox
 
-#constants
+# parameters
 XDIM = a1+a2 + 0.1
 ZDIM = a1+a2 + 0.1
 EPSILON = 0.01        # (rad)
@@ -22,19 +23,19 @@ TARGET_RADIUS = 0.02  # (meter)
 NUMNODES = 5000
 
 obstacle_segs = [ [[0.2,0.2], [0.4,0.2]] ]  # line segs ((x1,z1)--(x2,z2))
+#obstacle_segs = []  # no obstacles
 target_x = [0.15, 0.15]
 q0 = [np.pi/2 -0.01, 0.0]
-#obstacle_segs = []
 
-def dist(p1,p2):
-    return sqrt((p1[0]-p2[0])*(p1[0]-p2[0])+(p1[1]-p2[1])*(p1[1]-p2[1]))
+def dist(p1, p2):
+    return sqrt((p1[0]-p2[0]) * (p1[0]-p2[0]) + (p1[1]-p2[1]) * (p1[1]-p2[1]))
 
-def step_from_toward(p1,p2):
-    if dist(p1,p2) < EPSILON:
+def step_from_toward(p1, p2):
+    if dist(p1, p2) < EPSILON:
         return p2
     else:
-        theta = atan2(p2[1]-p1[1],p2[0]-p1[0])
-        return p1[0] + EPSILON*cos(theta), p1[1] + EPSILON*sin(theta)
+        theta = atan2(p2[1] - p1[1], p2[0] - p1[0])
+        return p1[0] + EPSILON * cos(theta), p1[1] + EPSILON * sin(theta)
 
 class Node:
     def __init__(self, q, parent_id = None): # q: joint position (q1, q2), x: location of the TCP (x, z)
@@ -52,9 +53,10 @@ def in_workspace(q):
     x = fk(q)
     return x[0] >= 0 and x[0] <= XDIM and x[1] >= 0 and x[1] <= ZDIM 
 
-def backtrace(nodes, new_node):
+# trace from "node" back to the root of the tree represented by "nodes"
+def backtrace(nodes, node):
     plan = []
-    curr_node = new_node
+    curr_node = node
     while True:
         plan.append(curr_node.q)
         if curr_node.parent_id is None:
@@ -64,18 +66,19 @@ def backtrace(nodes, new_node):
     plan.reverse()
     return plan
 
-
-
 def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
-    
     nodes = [ Node(q0) ]
+    start_x = fk(q0)
     
     if vis_pub is not None:
         vis_pub.publish(createPointMarker([[target_x[0], 0, target_x[1]]], 2, namespace="", rgba=(0,0,1,1), frame_id = '/arm_base'))
+        vis_pub.publish(createPointMarker([[start_x[0], 0, start_x[1]]], 2, namespace="", rgba=(1,0,1,1), frame_id = '/arm_base'))
+        rospy.sleep(0.1)
     
     for i in xrange(NIter):
         if i % 100 == 0:
             print 'iteration:', i
+            rospy.sleep(0.01)
         # pick a node in work space randomly
         q_rand = [ np.random.uniform(joint_limits[0][0], joint_limits[0][1]), 
                    np.random.uniform(joint_limits[1][0], joint_limits[1][1]) ]
@@ -87,12 +90,15 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
         #print 'in_collision(new_q)', in_collision(new_q)
         
         if pub is not None:
-            js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (new_q[0] - np.pi/2, new_q[1]))
+            js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (new_q[0], new_q[1]))
             pub.publish(js)
         
         if vis_pub is not None:
             xz = fk(new_q)
+            xz_old = fk(nodes[nearest_node_index].q)
             vis_pub.publish(createPointMarker([[xz[0], 0, xz[1]]], i+6, namespace="", rgba=(0,1,0,1), frame_id = '/arm_base'))
+            vis_pub.publish(createLineStripMarker([[xz_old[0], 0, xz_old[1]] , [xz[1][0], 0, xz[1][1]]], 
+                    marker_id = iseg+100000, rgba = (1,0,0,1), pose=[0,0,0,0,0,0,1], frame_id = '/arm_base'))
         
         if in_workspace(new_q) and not collision.in_collision(new_q, obstacle_segs):
             new_node = Node(new_q, nearest_node_index)
@@ -105,51 +111,58 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
     
     return None # no plan found
 
+def exec_joints(exec_real_pub, q):
+    exec_real_pub[0].publish(Float64(q[0]))
+    exec_real_pub[1].publish(Float64(q[1]))
+
 def main():
     rospy.init_node("test_rrt")
-    exec_joint_pub = rospy.Publisher('/virtual_joint_states', sensor_msgs.msg.JointState, queue_size=10)
-    exec_joint1_pub = rospy.Publisher('/joint1_controller/command', std_msgs.msg.Float64, queue_size=1)
-    exec_joint2_pub = rospy.Publisher('/joint2_controller/command', std_msgs.msg.Float64, queue_size=1)
-    vis_pub = rospy.Publisher('visualization_marker', Marker, queue_size=10) 
     
-    use_real_arm = rospy.get_param('/real_arm', False)
-    
+    # initiate publishers
+    exec_virtual_pub = rospy.Publisher('/virtual_joint_states', sensor_msgs.msg.JointState, queue_size=10)
+    exec_real_pubs = [rospy.Publisher('/joint1_controller/command', Float64, queue_size=1) ,
+                      rospy.Publisher('/joint2_controller/command', Float64, queue_size=1) ]
+    vis_pub = rospy.Publisher('visualization_marker', Marker, queue_size=100) 
     rospy.sleep(0.1)
     
-    vis_pub.publish(Marker(action=3)) # delete all
+    # get whether to use real arm
+    use_real_arm = rospy.get_param('/real_arm', False)    
+    
+    # visualizing obstacles
+    vis_pub.publish(Marker(action=3)) # delete all markers
     rospy.sleep(0.1)
-    vis_pub.publish(createLineStripMarker([[obstacle_segs[0][0][0], 0, obstacle_segs[0][0][1]] , [obstacle_segs[0][1][0], 0, obstacle_segs[0][1][1]]], 
-                    marker_id = 5, rgba = (1,0,0,1), pose=[0,0,0,0,0,0,1], frame_id = '/arm_base'))
+    for iseg, seg in enumerate(obstacle_segs):
+        vis_pub.publish(createLineStripMarker([[seg[0][0], 0, seg[0][1]] , [seg[1][0], 0, seg[1][1]]], 
+                    marker_id = iseg+100000, rgba = (1,0,0,1), pose=[0,0,0,0,0,0,1], frame_id = '/arm_base'))
+
+    # back to the starting point
+    if use_real_arm:
+        exec_joints(exec_real_pubs, q0)
+        rospy.sleep(0.5)
     
-    exec_joint1_pub.publish(std_msgs.msg.Float64(q0[0]))
-    exec_joint2_pub.publish(std_msgs.msg.Float64(q0[1]))
-    
-    rospy.sleep(0.5)
-    
+    # run rrt
     print 'target_x', target_x
     print 'q0', q0
-    
     plan = rrt(target_x = target_x, q0 = q0, pub = exec_joint_pub, vis_pub= vis_pub)
     if plan is None:
-        print 'no plan found in %d iterations': NIter
+        print 'no plan found in %d iterations' % NIter
         return
     
     print 'found 1 plan', plan
-    result = tkMessageBox.askquestion("RRT Plan", "A plan is found, execute?", icon='warning')
     
+    # execute it
+    result = tkMessageBox.askquestion("RRT Plan", "A plan is found, execute?", icon='warning')
     if result == 'yes':
         for p in plan:
             if not use_real_arm:
                 js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (p[0], p[1]))
                 exec_joint_pub.publish(js)
             else:
-                exec_joint1_pub.publish(std_msgs.msg.Float64(p[0]))
-                exec_joint2_pub.publish(std_msgs.msg.Float64(p[1]))
+                exec_joints(exec_real_pubs, p)
             
             rospy.sleep(0.01)
 
 # if python says run, then we should run
 if __name__ == '__main__':
     main()
-
 
