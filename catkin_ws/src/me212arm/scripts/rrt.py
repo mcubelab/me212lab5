@@ -10,7 +10,7 @@ from planner import fk, fk1, joint_limits, a1, a2
 import numpy as np
 import sensor_msgs.msg
 from std_msgs.msg import Float64
-from me212helper.marker_helper import createLineStripMarker, createPointMarker
+from me212helper.marker_helper import createLineStripMarker, createPointMarker, createSphereMarker
 from visualization_msgs.msg import Marker
 import collision
 import tkMessageBox
@@ -18,13 +18,14 @@ import tkMessageBox
 # parameters
 XDIM = a1+a2 + 0.1
 ZDIM = a1+a2 + 0.1
-EPSILON = 0.01        # (rad)
+EPSILON = 0.03        # (rad)
 TARGET_RADIUS = 0.02  # (meter)
 NUMNODES = 5000
+NIter = 10000
 
-obstacle_segs = [ [[0.2,0.3], [0.4,0.3]] ]  # line segs ((x1,z1)--(x2,z2))
+obstacle_segs = [ [[0.25,0.15], [0.4,0.2]], [[0.25,0.15-0.01], [0.4,0.2-0.01]] ]  # line segs ((x1,z1)--(x2,z2))
 #obstacle_segs = []  # no obstacles
-target_x = [0.15, 0.15]
+target_x = [0.3, 0.1]
 q0 = [-0.01, 0.0]
 
 def dist(p1, p2):
@@ -71,9 +72,10 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
     start_x = fk(q0)
     
     if vis_pub is not None:
-        vis_pub.publish(createPointMarker([[target_x[0], 0, target_x[1]]], 2, namespace="", rgba=(0,0,1,1), frame_id = '/arm_base'))
-        vis_pub.publish(createPointMarker([[start_x[0], 0, start_x[1]]], 2, namespace="", rgba=(1,0,1,1), frame_id = '/arm_base'))
-        rospy.sleep(0.1)
+        vis_pub.publish(createSphereMarker(2, namespace="", pose = [target_x[0], 0, target_x[1], 0, 0, 0 ,1], rgba=(0,0,1,1), frame_id = '/arm_base'))
+        rospy.sleep(0.2)
+        vis_pub.publish(createSphereMarker(3, namespace="", pose = [start_x[0], 0, start_x[1], 0, 0, 0 ,1], rgba=(1,0,1,1), frame_id = '/arm_base'))
+        rospy.sleep(0.2)
     
     for i in xrange(NIter):
         if i % 100 == 0:
@@ -93,14 +95,15 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
             js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (new_q[0], new_q[1]))
             pub.publish(js)
         
-        if vis_pub is not None:
-            xz = fk(new_q)
-            xz_old = fk(nodes[nearest_node_index].q)
-            vis_pub.publish(createPointMarker([[xz[0], 0, xz[1]]], i+6, namespace="", rgba=(0,1,0,1), frame_id = '/arm_base'))
-            vis_pub.publish(createLineStripMarker([[xz_old[0], 0, xz_old[1]] , [xz[1][0], 0, xz[1][1]]], 
-                    marker_id = iseg+100000, rgba = (1,0,0,1), pose=[0,0,0,0,0,0,1], frame_id = '/arm_base'))
         
         if in_workspace(new_q) and not collision.in_collision(new_q, obstacle_segs):
+            if vis_pub is not None:
+                xz = fk(new_q)
+                xz_old = fk(nodes[nearest_node_index].q)
+                vis_pub.publish(createPointMarker([[xz[0], 0, xz[1]]], i+6, namespace="", rgba=(0,1,0,1), frame_id = '/arm_base'))
+                vis_pub.publish(createLineStripMarker([[xz_old[0], 0, xz_old[1]] , [xz[0], 0, xz[1]]], 
+                        marker_id = i+200000, rgba = (0,0.5,0,1), pose=[0,0,0,0,0,0,1], frame_id = '/arm_base'))
+            
             new_node = Node(new_q, nearest_node_index)
             nodes.append(new_node)
             
@@ -123,19 +126,19 @@ def main():
     exec_real_pubs = [rospy.Publisher('/joint1_controller/command', Float64, queue_size=1) ,
                       rospy.Publisher('/joint2_controller/command', Float64, queue_size=1) ]
     vis_pub = rospy.Publisher('visualization_marker', Marker, queue_size=100) 
-    rospy.sleep(0.1)
+    rospy.sleep(0.5)
     
     # get whether to use real arm
     use_real_arm = rospy.get_param('/real_arm', False)    
     
     # visualizing obstacles
     vis_pub.publish(Marker(action=3)) # delete all markers
-    rospy.sleep(0.1)
+    rospy.sleep(0.5)
     for iseg, seg in enumerate(obstacle_segs):
         vis_pub.publish(createLineStripMarker([[seg[0][0], 0, seg[0][1]] , [seg[1][0], 0, seg[1][1]]], 
                     marker_id = iseg+100000, rgba = (1,0,0,1), pose=[0,0,0,0,0,0,1], frame_id = '/arm_base'))
 
-    # back to the starting point
+    # back to the starting pose
     if use_real_arm:
         exec_joints(exec_real_pubs, q0)
         rospy.sleep(0.5)
@@ -143,9 +146,9 @@ def main():
     # run rrt
     print 'target_x', target_x
     print 'q0', q0
-    plan = rrt(target_x = target_x, q0 = q0, pub = exec_joint_pub, vis_pub= vis_pub)
+    plan = rrt(target_x = target_x, q0 = q0, NIter = NIter, pub = exec_virtual_pub, vis_pub= vis_pub)
     if plan is None:
-        print 'no plan found'
+        print 'no plan found in %d iterations' % NIter
         return
     
     print 'found 1 plan', plan
@@ -156,11 +159,11 @@ def main():
         for p in plan:
             if not use_real_arm:
                 js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (p[0], p[1]))
-                exec_joint_pub.publish(js)
+                exec_virtual_pub.publish(js)
             else:
                 exec_joints(exec_real_pubs, p)
             
-            rospy.sleep(0.01)
+            rospy.sleep(0.1)
 
 # if python says run, then we should run
 if __name__ == '__main__':

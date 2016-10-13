@@ -72,7 +72,25 @@ def createCubeMarker(offset=(0,0,0), marker_id = 0, rgba=(1,0,0,1), orientation=
         
     return obj_control
 
+
+
+def createSphereMarker(marker_id, namespace, rgba = None, pose=[0,0,0,0,0,0,1], frame_id = '/map'):
+    marker = Marker()
+    marker.header.frame_id = frame_id
+    marker.type = marker.SPHERE
+    marker.scale.x = 0.01
+    marker.scale.y = 0.01
+    marker.scale.z = 0.01
+    marker.id = marker_id
+    marker.ns = namespace
     
+    if rgba is not None:
+        marker.color.r, marker.color.g, marker.color.b, marker.color.a = tuple(rgba)
+        
+    marker.pose = poselist2pose(pose)
+    
+        
+    return marker
 
 def createPointMarker(points, marker_id, namespace, rgba = None, pose=[0,0,0,0,0,0,1], frame_id = '/map'):
     marker = Marker()
