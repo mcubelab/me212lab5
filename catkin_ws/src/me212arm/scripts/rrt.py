@@ -57,11 +57,10 @@ def in_workspace(q):
 def path_in_collision(q1, q2, obstacles_segs):
     endpoint1 = fk(q1)
     endpoint2 = fk(q2)
-    collision = False
     for obstacle in obstacle_segs:
-        if intersect(endpoint1, endpoint2, obstacle[0], obstacle[1]):
-            collision = True
-    return collision
+        if collision.intersect(endpoint1, endpoint2, obstacle[0], obstacle[1]):
+            return True
+    return False
 
 # trace from "node" back to the root of the tree represented by "nodes"
 def backtrace(nodes, node):
@@ -105,7 +104,7 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
             pub.publish(js)
         
         
-        if in_workspace(new_q) and not collision.in_collision(new_q, obstacle_segs) and not path_in_collision(new_q, nodes[nearest_node_index].q, obstacles_segs):
+        if in_workspace(new_q) and not collision.in_collision(new_q, obstacle_segs) and not path_in_collision(new_q, nodes[nearest_node_index].q, obstacle_segs):
             if vis_pub is not None:
                 xz = fk(new_q)
                 xz_old = fk(nodes[nearest_node_index].q)
