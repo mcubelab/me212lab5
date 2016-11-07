@@ -37,9 +37,8 @@ set_ros()
   if [ -f $CODE_BASE/catkin_ws/devel/setup.bash ]; then
     source $CODE_BASE/catkin_ws/devel/setup.bash
   else
-    source /opt/ros/indigo/setup.bash
+    source /opt/ros/kinetic/setup.bash
   fi
-  export ROS_PACKAGE_PATH=$HOME/pokebot/ros_ws/:$ROS_PACKAGE_PATH
 }
 
 # some useful commands
