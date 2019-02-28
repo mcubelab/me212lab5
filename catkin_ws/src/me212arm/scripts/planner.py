@@ -2,9 +2,9 @@ import numpy as np
 
 joint_limits = [
     [-np.pi/2, np.pi/4],  # make joint 1 smaller from real
-    [-np.pi, np.pi]]  
+    [-np.pi, np.pi]]
 
-# length of two links
+# length of two links in meters
 a1 = 0.1778
 a2 = 0.235
 
@@ -26,12 +26,13 @@ def select_best_q(candidates, q0, weight = [1,1]):
     return best_q
 
 def ik(target_TCP_xz, q0):
-    x, z = target_TCP_xz[0], target_TCP_xz[1]
+    x,z = target_TCP_xz[0], target_TCP_xz[1]
     ik_candidate = []
     
     xz2 = x**2 + z**2  ## In Python, x**y: x to the power y
     
     # candidate 1
+    # q_1 and q_2 are in RADIANS
     q_2 = ## ??
     q_1 = ## ??
     
@@ -53,8 +54,8 @@ def ikv(target_TCP_vel, q0):
     return qdot
 
 def Jacobian(q):
-    q1 = q[0]
-    q2 = q[1]
+    q1 = -q[0]
+    q2 = -q[1]
     s1 = np.sin(q1)
     s12 = np.sin(q1+q1)
     c1 = np.cos(q1)
@@ -64,15 +65,13 @@ def Jacobian(q):
 
 # return end point of the second link
 def fk(q):
-    th1 = q[0] + np.pi / 2
-    th12 = th1 + q[1]
+    th1 = -q[0] + 0*np.pi / 2
+    th12 = th1 - q[1]
     return [a1 * np.cos(th1) + a2 * np.cos(th12) ,
             a1 * np.sin(th1) + a2 * np.sin(th12)]
 
 # return end point of the first link
 def fk1(q):
-    th1 = q[0] + np.pi / 2
+    th1 = -q[0] + 0*np.pi / 2
     return [a1 * np.cos(th1),
             a1 * np.sin(th1)]
-
-

@@ -17,7 +17,7 @@ use_real_arm = rospy.get_param('/real_arm', False)
 
 if __name__=="__main__":
     radius = 0.05          # (meter)
-    center = [0.2, 0.15]  # (x,z) meter
+    center = [0.3, 0.0]  # (x,z) meter
     
     robotjoints = rospy.wait_for_message('/joint_states', sensor_msgs.msg.JointState)
     q0 = robotjoints.position

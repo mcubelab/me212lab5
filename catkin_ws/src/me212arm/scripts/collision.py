@@ -17,7 +17,7 @@ def in_collision(q, obstacle_segs):
 
 if __name__=="__main__":
     
-    obstacle_segs = [ [[0.0,0.0], [0.0,0.4]] ]  # line segs ((x1,z1)--(x2,z2))
+    obstacle_segs = [ [[0.0,0.0], [0.6,0]] ]  # line segs ((x1,z1)--(x2,z2))
     print in_collision( [0,0], obstacle_segs)                       # False
-    print in_collision( [np.pi /4, -np.pi *3/4], obstacle_segs)     # True
+    print in_collision( [np.pi/4, -3*np.pi/4], obstacle_segs)     # True
     print in_collision( [-0.45709828817786735, -1.4971869034039356], obstacle_segs) # False

@@ -25,8 +25,8 @@ NIter = 10000
 
 obstacle_segs = [ [[0.25,0.15], [0.4,0.2]], [[0.25,0.15-0.01], [0.4,0.2-0.01]] ]  # line segs ((x1,z1)--(x2,z2))
 #obstacle_segs = []  # no obstacles
-target_x = [0.3, 0.1]
-q0 = [-0.01, 0.0]
+target_x = [0.4, 0.1]
+q0 = [-np.pi/4, -np.pi/4] #radians
 
 def dist(p1, p2):
     return sqrt((p1[0]-p2[0]) * (p1[0]-p2[0]) + (p1[1]-p2[1]) * (p1[1]-p2[1]))
@@ -94,10 +94,10 @@ def rrt(target_x, q0, NIter = 10000, pub = None, vis_pub= None):
                    np.random.uniform(joint_limits[1][0], joint_limits[1][1]) ]
         nearest_node_index = find_nearest_node (nodes, q_rand)
         new_q = step_from_toward(nodes[nearest_node_index].q, q_rand)
-        
+        #new_q = [-1.1412249054766512, 1.1705410289473315] # For Debug
         #print 'new_q', new_q
         #print 'in_workspace(new_q)', in_workspace(new_q)
-        #print 'in_collision(new_q)', in_collision(new_q)
+        #print 'in_collision(new_q)', collision.in_collision(new_q, obstacle_segs)
         
         if pub is not None:
             js = sensor_msgs.msg.JointState(name=['joint1', 'joint2'], position = (new_q[0], new_q[1]))
